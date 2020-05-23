@@ -1,18 +1,4 @@
-/*
- * Copyright (C) The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+
 package com.example.detectorface;
 
 import android.Manifest;
@@ -21,17 +7,12 @@ import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.hardware.Camera;
-import android.os.Build;
 import android.os.Bundle;
 
-import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -46,7 +27,6 @@ import com.google.android.gms.vision.face.FaceDetector;
 
 import java.io.IOException;
 
-
 public final class FaceTrackerActivity extends AppCompatActivity {
     private static final String TAG = "FaceTracker";
 
@@ -57,6 +37,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
     private Button mbtn;
 
     private static final int RC_HANDLE_GMS = 9001;
+    // permission request codes need to be < 256
     private static final int RC_HANDLE_CAMERA_PERM = 2;
 
 
@@ -69,45 +50,32 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         mGraphicOverlay = (GraphicOverlay) findViewById(R.id.faceOverlay);
         mbtn=(Button)findViewById(R.id.btnrotate);
 
-        mbtn.setOnClickListener(new View.OnClickListener() {
+       mbtn.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) {
-               // awesomeButtonClicked();
-                Log.e("TAG","ROTATING");
-                Context context = getApplicationContext();
-                CharSequence text = "Rotating!";
-                int duration = Toast.LENGTH_SHORT;
+            public void onClick(View view) {
+                if(mCameraSource.getCameraFacing()==CameraSource.CAMERA_FACING_FRONT){
+                    mbtn.setText("FRONT CAMERA");
+                    if (mCameraSource != null) {
+                        mCameraSource.release();
+                    }
+                    createCameraSource(CameraSource.CAMERA_FACING_BACK);
+                }
+                else{
+                   mbtn.setText("BACK CAMERA");
+                    if (mCameraSource != null) {
+                        mCameraSource.release();
+                    }
+                    createCameraSource(CameraSource.CAMERA_FACING_FRONT);
+                }
 
-                Toast toast = Toast.makeText(context, text, duration);
-                toast.show();
-
-
-
-
+                startCameraSource();
             }
         });
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        // Check for the camera permission before accessing the camera.  If the
-        // permission is not granted yet, request permission.
         int rc = ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
         if (rc == PackageManager.PERMISSION_GRANTED) {
-            createCameraSource();
+            createCameraSource(CameraSource.CAMERA_FACING_BACK);
         } else {
             requestCameraPermission();
         }
@@ -145,11 +113,12 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 .show();
     }
 
-
-
-
-
-    private void createCameraSource() {
+    /**
+     * Creates and starts the camera.  Note that this uses a higher resolution in comparison
+     * to other detection examples to enable the barcode detector to detect small barcodes
+     * at long distances.
+     */
+    private void createCameraSource(int cameraFacing) {
 
         Context context = getApplicationContext();
         FaceDetector detector = new FaceDetector.Builder(context)
@@ -167,14 +136,13 @@ public final class FaceTrackerActivity extends AppCompatActivity {
 
         mCameraSource = new CameraSource.Builder(context, detector)
                 .setRequestedPreviewSize(640, 480)
-                .setFacing(CameraSource.CAMERA_FACING_BACK)
+                .setFacing(cameraFacing)
+               // .setFacing(CameraSource.CAMERA_FACING_BACK)
                 .setRequestedFps(30.0f)
                 .build();
     }
 
-    /**
-     * Restarts the camera.
-     */
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -182,19 +150,14 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         startCameraSource();
     }
 
-    /**
-     * Stops the camera.
-     */
+
     @Override
     protected void onPause() {
         super.onPause();
         mPreview.stop();
     }
 
-    /**
-     * Releases the resources associated with the camera source, the associated detector, and the
-     * rest of the processing pipeline.
-     */
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -202,7 +165,6 @@ public final class FaceTrackerActivity extends AppCompatActivity {
             mCameraSource.release();
         }
     }
-
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
@@ -215,7 +177,7 @@ public final class FaceTrackerActivity extends AppCompatActivity {
         if (grantResults.length != 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             Log.d(TAG, "Camera permission granted - initialize the camera source");
             // we have permission, so create the camerasource
-            createCameraSource();
+            createCameraSource(CameraSource.CAMERA_FACING_BACK);
             return;
         }
 
@@ -234,7 +196,6 @@ public final class FaceTrackerActivity extends AppCompatActivity {
                 .setPositiveButton(R.string.ok, listener)
                 .show();
     }
-
 
 
     private void startCameraSource() {
